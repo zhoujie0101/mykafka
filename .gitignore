@@ -1,0 +1,16 @@
+dist
+*classes
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+project/sbt_project_definition.iml
+.idea
+.svn
+.classpath
+*~
+*#
+.#*
+
+*.iml

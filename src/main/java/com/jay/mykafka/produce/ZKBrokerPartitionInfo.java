@@ -1,0 +1,108 @@
+package com.jay.mykafka.produce;
+
+import com.jay.mykafka.cluster.Broker;
+import com.jay.mykafka.cluster.Partition;
+import com.jay.mykafka.conf.ZKConfig;
+import com.jay.mykafka.util.ZKStringSerializer;
+import com.jay.mykafka.util.ZKUtils;
+import org.I0Itec.zkclient.ZkClient;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedSet;
+import java.util.TreeSet;
+
+/**
+ * jie.zhou
+ * 2018/10/26 10:51
+ */
+public class ZKBrokerPartitionInfo implements BrokerPartitionInfo {
+    private Object zkWatcherLock = new Object();
+    private ZKConfig config;
+    private ZkClient zkClient;
+    //topic -> partitions
+    private Map<String, SortedSet<Partition>> topicBrokerPartitions;
+    //brokerId -> broker
+    Map<Integer, Broker> allBrokers;
+
+    public ZKBrokerPartitionInfo(ZKConfig config) {
+        this.config = config;
+        this.zkClient = new ZkClient(config.getZkConnect(), config.getZkSessionTimeoutMs(),
+                config.getZkConnectionTimeoutMs(), new ZKStringSerializer());
+
+        allBrokers = getZKBrokerInfo();
+
+        topicBrokerPartitions = getZKTopicPartitionInfo();
+    }
+
+    private Map<String, SortedSet<Partition>> getZKTopicPartitionInfo() {
+        Map<String, SortedSet<Partition>> brokerPartitionsPerTopic = new HashMap<>();
+        ZKUtils.makeSurePersistentPathExists(zkClient, ZKUtils.BROKER_TOPICS_PATH);
+        List<String> topics = zkClient.getChildren(ZKUtils.BROKER_TOPICS_PATH);
+        if (topics != null && !topics.isEmpty()) {
+            topics.forEach(topic -> {
+                String brokerTopicPath = ZKUtils.BROKER_TOPICS_PATH + "/" + topic;
+                List<String> brokerList = zkClient.getChildren(brokerTopicPath);
+                //TODO
+            });
+        }
+
+        return brokerPartitionsPerTopic;
+    }
+
+    private Map<Integer, Broker> getZKBrokerInfo() {
+        Map<Integer, Broker> brokers = new HashMap<>();
+        List<String> allBrokerIds = zkClient.getChildren(ZKUtils.BROKER_IDS_PATH);
+        allBrokerIds.forEach(brokerId -> {
+            int bid = Integer.parseInt(brokerId);
+            String brokerInfo = zkClient.readData(ZKUtils.BROKER_IDS_PATH + "/" + brokerId);
+            brokers.put(bid, Broker.create(bid, brokerInfo));
+        });
+
+        return brokers;
+    }
+
+    @Override
+    public SortedSet<Partition> getBrokerPartitionInfo(String topic) {
+        SortedSet<Partition> partitions;
+        synchronized (zkWatcherLock) {
+            partitions = topicBrokerPartitions.get(topic);
+            if (partitions == null || partitions.isEmpty()) {
+                partitions = bootstrapWithExistingBrokers(topic);
+                topicBrokerPartitions.put(topic, partitions);
+            }
+        }
+
+        return partitions;
+    }
+
+    private SortedSet<Partition> bootstrapWithExistingBrokers(String topic) {
+        List<String> allBrokerIds = zkClient.getChildren(ZKUtils.BROKER_IDS_PATH);
+
+        SortedSet<Partition> partitions = new TreeSet<>();
+        allBrokerIds.forEach(brokerId -> partitions.add(new Partition(Integer.parseInt(brokerId), 0)));
+
+        return partitions;
+    }
+
+    @Override
+    public Broker getBrokerInfo(int brokerId) {
+        return null;
+    }
+
+    @Override
+    public Map<Integer, Broker> getAllBrokerInfo() {
+        return null;
+    }
+
+    @Override
+    public void updateInfo() {
+
+    }
+
+    @Override
+    public void close() {
+
+    }
+}
