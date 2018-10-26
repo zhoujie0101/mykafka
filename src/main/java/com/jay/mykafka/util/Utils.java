@@ -9,6 +9,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.zip.CRC32;
 
 /**
  * jie.zhou
@@ -150,5 +151,63 @@ public class Utils {
         Thread thread = new Thread(r, name);
         thread.setDaemon(daemon);
         return thread;
+    }
+
+    public static <T> T getObject(String className) {
+        if (className == null || className.length() == 0) {
+            return null;
+        }
+        try {
+            return (T) Class.forName(className).newInstance();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static boolean propertyExists(String key) {
+        return false;
+    }
+
+    public static Properties getProps(Properties props, String key) {
+        if (props.containsKey(key)) {
+            return extractProperties(props, key);
+        } else {
+            throw new IllegalArgumentException("Missing required property '" + key + "'");
+        }
+    }
+
+    public static Properties getProps(Properties props, String key, Properties def) {
+        if (props.containsKey(key)) {
+            return extractProperties(props, key);
+        } else {
+            return def;
+        }
+    }
+
+    private static Properties extractProperties(Properties props, String key) {
+        String propStr = props.getProperty(key);
+        String[] propValues = propStr.split(",");
+        Properties properties = new Properties();
+        for (String val : propValues) {
+            String[] prop = val.split("=");
+            if (prop.length != 2) {
+                throw new IllegalArgumentException("Illegal format of specifying properties '" + val + "'");
+            }
+            properties.put(prop[0], prop[1]);
+        }
+
+        return properties;
+    }
+
+    public static long crc32(byte[] bytes) {
+        return crc32(bytes, 0, bytes.length);
+    }
+
+    public static long crc32(byte[] bytes, int offset, int length) {
+        CRC32 crc = new CRC32();
+        crc.update(bytes, offset, length);
+
+        return crc.getValue();
     }
 }

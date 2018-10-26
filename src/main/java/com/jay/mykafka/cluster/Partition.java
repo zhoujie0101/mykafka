@@ -34,4 +34,12 @@ public class Partition implements Comparable<Partition> {
 
         return this.brokerId - that.brokerId;
     }
+
+    public int getBrokerId() {
+        return brokerId;
+    }
+
+    public int getPartitionId() {
+        return partitionId;
+    }
 }

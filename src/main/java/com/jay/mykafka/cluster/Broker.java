@@ -26,6 +26,22 @@ public class Broker {
         return creatorId + ":" + host + ":" + port;
     }
 
+    public int getId() {
+        return id;
+    }
+
+    public String getCreatorId() {
+        return creatorId;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
     @Override
     public String toString() {
         return  "id:" + id + ",creatorId:" + creatorId + ",host:" + host + ",port:" + port;

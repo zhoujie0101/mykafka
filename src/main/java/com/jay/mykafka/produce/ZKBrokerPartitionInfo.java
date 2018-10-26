@@ -5,6 +5,7 @@ import com.jay.mykafka.cluster.Partition;
 import com.jay.mykafka.conf.ZKConfig;
 import com.jay.mykafka.util.ZKStringSerializer;
 import com.jay.mykafka.util.ZKUtils;
+import org.I0Itec.zkclient.IZkChildListener;
 import org.I0Itec.zkclient.ZkClient;
 
 import java.util.HashMap;
@@ -26,6 +27,8 @@ public class ZKBrokerPartitionInfo implements BrokerPartitionInfo {
     //brokerId -> broker
     Map<Integer, Broker> allBrokers;
 
+    private BrokerTopicListener brokerTopicListener;
+
     public ZKBrokerPartitionInfo(ZKConfig config) {
         this.config = config;
         this.zkClient = new ZkClient(config.getZkConnect(), config.getZkSessionTimeoutMs(),
@@ -34,6 +37,12 @@ public class ZKBrokerPartitionInfo implements BrokerPartitionInfo {
         allBrokers = getZKBrokerInfo();
 
         topicBrokerPartitions = getZKTopicPartitionInfo();
+
+        brokerTopicListener = new BrokerTopicListener(topicBrokerPartitions, allBrokers);
+        zkClient.subscribeChildChanges(ZKUtils.BROKER_TOPICS_PATH, brokerTopicListener);
+        topicBrokerPartitions.keySet().forEach(topic ->
+                zkClient.subscribeChildChanges(ZKUtils.BROKER_TOPICS_PATH + "/" + topic, brokerTopicListener));
+        zkClient.subscribeChildChanges(ZKUtils.BROKER_IDS_PATH, brokerTopicListener);
     }
 
     private Map<String, SortedSet<Partition>> getZKTopicPartitionInfo() {
@@ -44,7 +53,15 @@ public class ZKBrokerPartitionInfo implements BrokerPartitionInfo {
             topics.forEach(topic -> {
                 String brokerTopicPath = ZKUtils.BROKER_TOPICS_PATH + "/" + topic;
                 List<String> brokerList = zkClient.getChildren(brokerTopicPath);
-                //TODO
+                if (brokerList != null && !brokerList.isEmpty()) {
+                    SortedSet<Partition> brokerPartitions = new TreeSet<>();
+                    brokerList.forEach( brokerId -> {
+                        String numPartitions = zkClient.readData(brokerTopicPath + "/" + brokerId);
+                        Partition partition = new Partition(Integer.valueOf(brokerId), Integer.parseInt(numPartitions));
+                        brokerPartitions.add(partition);
+                    });
+                    topicBrokerPartitions.put(topic, brokerPartitions);
+                }
             });
         }
 
@@ -88,21 +105,36 @@ public class ZKBrokerPartitionInfo implements BrokerPartitionInfo {
 
     @Override
     public Broker getBrokerInfo(int brokerId) {
-        return null;
+        return allBrokers.get(brokerId);
     }
 
     @Override
     public Map<Integer, Broker> getAllBrokerInfo() {
-        return null;
+        return allBrokers;
     }
 
     @Override
     public void updateInfo() {
-
+        synchronized (zkWatcherLock) {
+            topicBrokerPartitions = getZKTopicPartitionInfo();
+            allBrokers = getZKBrokerInfo();
+        }
     }
 
     @Override
     public void close() {
+        zkClient.close();
+    }
 
+    private class BrokerTopicListener implements IZkChildListener {
+        public BrokerTopicListener(Map<String, SortedSet<Partition>> topicBrokerPartitions,
+                                   Map<Integer, Broker> allBrokers) {
+
+        }
+
+        @Override
+        public void handleChildChange(String parentPath, List<String> currentChilds) throws Exception {
+
+        }
     }
 }

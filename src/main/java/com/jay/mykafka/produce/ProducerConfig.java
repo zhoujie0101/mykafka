@@ -1,6 +1,8 @@
 package com.jay.mykafka.produce;
 
 import com.jay.mykafka.conf.ZKConfig;
+import com.jay.mykafka.produce.async.AsyncProducerConfig;
+import com.jay.mykafka.produce.async.AsyncProducerConfigShared;
 import com.jay.mykafka.util.Utils;
 
 import java.util.Properties;
@@ -9,18 +11,7 @@ import java.util.Properties;
  * jie.zhou
  * 2018/10/26 10:24
  */
-public class ProduceConfig extends ZKConfig {
-    private String host;
-    private int port;
-    private int bufferSize;
-    private int connectTimeoutMs;
-    private int socketTimeoutMs;
-    private int reconnectInterval;
-    /**
-     * negative reconnect time interval means disabling this time-based reconnect feature
-     */
-    private int reconnectTimeInterval;
-    private int maxMessageSize;
+public class ProducerConfig extends ZKConfig {
     /**
      * If DefaultEventHandler is used, this specifies the number of times to
      * retry if an error is encountered during send. Currently, it is only
@@ -50,54 +41,22 @@ public class ProduceConfig extends ZKConfig {
      */
      private int zkReadRetries;
 
-    public ProduceConfig(Properties props) {
+     private SyncProducerConfig syncProducerConfig;
+
+     private AsyncProducerConfigShared asyncProducerConfigShared;
+
+    public ProducerConfig(Properties props) {
         super(props);
 
-        this.host = Utils.getString(props, "host");
-        this.port = Utils.getInt(props, "port");
-        this.bufferSize = Utils.getInt(props, "buffer.size", 100 * 1024);
-        this.connectTimeoutMs = Utils.getInt(props, "connect.timeout.ms", 5000);
-        this.socketTimeoutMs = Utils.getInt(props, "socket.timeout.ms", 30000);
-        this.reconnectInterval = Utils.getInt(props, "reconnect.interval", 30000);
-        this.reconnectTimeInterval = Utils.getInt(props, "reconnect.time.interval.ms", 1000 * 1000 * 10);
-        this.maxMessageSize = Utils.getInt(props, "max.message.size", 1000 * 1000);
+        syncProducerConfig = new SyncProducerConfig(props);
+
+        asyncProducerConfigShared = new AsyncProducerConfigShared(props);
+
         this.numRetries = Utils.getInt(props, "num.retries", 0);
         this.partitionerClass = Utils.getString(props, "partitioner.class",
                 "com.jay.mykafka.produce.DefaultPartitioner");
         this.produceType = Utils.getString(props, "product.type", "sync");
         this.zkReadRetries = Utils.getInt(props, "zk.read.num.retries", 3);
-    }
-
-    public String getHost() {
-        return host;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    public int getBufferSize() {
-        return bufferSize;
-    }
-
-    public int getConnectTimeoutMs() {
-        return connectTimeoutMs;
-    }
-
-    public int getSocketTimeoutMs() {
-        return socketTimeoutMs;
-    }
-
-    public int getReconnectInterval() {
-        return reconnectInterval;
-    }
-
-    public int getReconnectTimeInterval() {
-        return reconnectTimeInterval;
-    }
-
-    public int getMaxMessageSize() {
-        return maxMessageSize;
     }
 
     public int getNumRetries() {
@@ -114,5 +73,13 @@ public class ProduceConfig extends ZKConfig {
 
     public int getZkReadRetries() {
         return zkReadRetries;
+    }
+
+    public SyncProducerConfig getSyncProducerConfig() {
+        return syncProducerConfig;
+    }
+
+    public AsyncProducerConfigShared getAsyncProducerConfigShared() {
+        return asyncProducerConfigShared;
     }
 }
