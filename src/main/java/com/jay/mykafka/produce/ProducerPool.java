@@ -1,6 +1,9 @@
 package com.jay.mykafka.produce;
 
+import com.jay.mykafka.api.ProducerRequest;
 import com.jay.mykafka.cluster.Partition;
+import com.jay.mykafka.common.UnavailableProducerException;
+import com.jay.mykafka.message.ByteBufferMessageSet;
 import com.jay.mykafka.produce.async.AsyncProducer;
 import com.jay.mykafka.produce.async.CallbackHandler;
 import com.jay.mykafka.produce.async.DefaultEventHandler;
@@ -32,7 +35,7 @@ public class ProducerPool<V> {
     private EventHandler eventHandler;
     private CallbackHandler ckHandler;
     private ConcurrentMap<Integer, SyncProducer> syncProducers;
-    private ConcurrentMap<Integer, AsyncProducer> asyncProducers;
+    private ConcurrentMap<Integer, AsyncProducer<V>> asyncProducers;
     private boolean sync;
 
     public ProducerPool(ProducerConfig config, Encoder<V> serializer) {
@@ -48,7 +51,7 @@ public class ProducerPool<V> {
 
     public ProducerPool(ProducerConfig config, Encoder<V> serializer, EventHandler eventHandler,
                         CallbackHandler ckHandler, ConcurrentMap<Integer, SyncProducer> syncProducers,
-                        ConcurrentMap<Integer, AsyncProducer> asyncProducers) {
+                        ConcurrentMap<Integer, AsyncProducer<V>> asyncProducers) {
         if (serializer == null) {
             throw new IllegalArgumentException("serializer passed in is null!");
         }
@@ -88,9 +91,30 @@ public class ProducerPool<V> {
         distinctBrokerIds.forEach(brokerId -> {
             List<ProducePoolData<V>> requestForCurrentBroker = dataMap.get(brokerId);
             if (sync) {
-
+                List<ProducerRequest> requests = requestForCurrentBroker.stream().map(data -> {
+                    ByteBufferMessageSet message = new ByteBufferMessageSet(
+                            data.getData().stream().map(d -> serializer.toMessage(d)).collect(Collectors.toList())
+                    );
+                    return new ProducerRequest(data.getTopic(), data.getPartition().getPartitionId(),
+                            message);
+                }).collect(Collectors.toList());
+                SyncProducer producer = syncProducers.get(brokerId);
+                if (producer == null) {
+                    throw new UnavailableProducerException("Producer pool has not been initialized correctly. " +
+                            "Sync Producer for broker " + brokerId + " does not exist in the pool");
+                }
+                producer.send(requests);
             } else {
-
+                AsyncProducer<V> producer = asyncProducers.get(brokerId);
+                if (producer == null) {
+                    throw new UnavailableProducerException("Producer pool has not been initialized correctly. " +
+                            "Async Producer for broker " + brokerId + " does not exist in the pool");
+                }
+                requestForCurrentBroker.forEach(req ->
+                        req.getData().forEach(data ->
+                                producer.send(req.getTopic(), req.getPartition().getPartitionId(), data)
+                        )
+                );
             }
         });
     }

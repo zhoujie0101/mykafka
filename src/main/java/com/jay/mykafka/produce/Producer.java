@@ -106,8 +106,8 @@ public class Producer<K, V> {
                         data.getTopic() + " and key: " + data.getKey());
             }
 
-            return producerPool.createProducePoolData(data.getTopic(), new Partition(selectedPartition.getPartitionId(),
-                    selectedPartition.getBrokerId()), data.getValue());
+            return producerPool.createProducePoolData(data.getTopic(), new Partition(selectedPartition.getBrokerId(),
+                    selectedPartition.getPartitionId()), data.getValue());
 
         }).collect(Collectors.toList());
 
