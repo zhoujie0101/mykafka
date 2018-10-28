@@ -1,5 +1,6 @@
 package com.jay.mykafka.server;
 
+import com.jay.mykafka.api.ProducerRequest;
 import com.jay.mykafka.api.RequestKeys;
 import com.jay.mykafka.log.LogManager;
 import com.jay.mykafka.network.Receive;
@@ -19,41 +20,52 @@ public class KafkaRequestHandler {
         this.logManager = logManager;
     }
 
-    public Send handleRequest(SelectionKey key, Receive request) {
-        int requestTypeId = request.buffer().getShort();
+    public Send handleRequest(SelectionKey key, Receive receive) {
+        int requestTypeId = receive.buffer().getShort();
         switch (requestTypeId) {
             case RequestKeys.PRODUCE:
-                return handleProduceRequest(request);
+                return handleProduceRequest(receive);
             case RequestKeys.FETCH:
-                return handleFetchRequest(request);
+                return handleFetchRequest(receive);
             case RequestKeys.MULTI_FETCH:
-                return handleMultiFetchRequest(request);
+                return handleMultiFetchRequest(receive);
             case RequestKeys.MUTIL_PRODUCE:
-                return handleMultiProduceRequest(request);
+                return handleMultiProduceRequest(receive);
             case RequestKeys.OFFSETS:
-                return handleOffsetRequest(request);
+                return handleOffsetRequest(receive);
             default:
                 throw new IllegalStateException("No mapping found for handler id " + requestTypeId);
         }
     }
 
-    private Send handleProduceRequest(Receive request) {
+    private Send handleProduceRequest(Receive receive) {
+        ProducerRequest request = ProducerRequest.readFrom(receive.buffer());
+        int partition = request.getPartition();
+        if (partition == -1) {
+            partition = logManager.choosePartition(request.getTopic());
+        }
+        try {
+            logManager.getOrCreateLog(request.getTopic(), partition).append(request.getMessages());
+        } catch (Exception e) {
+
+        }
+
         return null;
     }
 
-    private Send handleFetchRequest(Receive request) {
+    private Send handleFetchRequest(Receive receive) {
         return null;
     }
 
-    private Send handleMultiFetchRequest(Receive request) {
+    private Send handleMultiFetchRequest(Receive receive) {
         return null;
     }
 
-    private Send handleMultiProduceRequest(Receive request) {
+    private Send handleMultiProduceRequest(Receive receive) {
         return null;
     }
 
-    private Send handleOffsetRequest(Receive request) {
+    private Send handleOffsetRequest(Receive receive) {
         return null;
     }
 }

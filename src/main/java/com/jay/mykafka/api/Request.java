@@ -16,4 +16,8 @@ public abstract class Request {
     public abstract int sizeInBytes();
 
     public abstract void writeTo(ByteBuffer buffer);
+
+    public short getId() {
+        return id;
+    }
 }

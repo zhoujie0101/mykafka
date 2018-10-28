@@ -2,6 +2,7 @@ package com.jay.mykafka.api;
 
 import com.jay.mykafka.message.ByteBufferMessageSet;
 
+import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
@@ -14,7 +15,6 @@ public class ProducerRequest extends Request {
     private int partition;
     private ByteBufferMessageSet messages;
 
-
     public ProducerRequest(String topic, int partition, ByteBufferMessageSet messages) {
         super(RequestKeys.PRODUCE);
         this.topic = topic;
@@ -26,8 +26,8 @@ public class ProducerRequest extends Request {
     public int sizeInBytes() {
         return 2  //topic
                 + topic.length()
-                + 4
-                + 4
+                + 4  //partition
+                + 4  //message size
                 + (int) messages.sizeInBytes();
     }
 
@@ -39,5 +39,36 @@ public class ProducerRequest extends Request {
         buffer.putInt(messages.serialized().limit());
         buffer.put(messages.serialized());
         buffer.rewind();
+    }
+
+    public String getTopic() {
+        return topic;
+    }
+
+    public int getPartition() {
+        return partition;
+    }
+
+    public ByteBufferMessageSet getMessages() {
+        return messages;
+    }
+
+    public static ProducerRequest readFrom(ByteBuffer buffer) {
+        int topicLength = buffer.getShort();
+        byte[] bytes = new byte[topicLength];
+        buffer.get(bytes);
+        String topic = null;
+        try {
+            topic = new String(bytes, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        int partition = buffer.getInt();
+        int messageSize = buffer.getInt();
+        ByteBuffer message = buffer.slice();
+        message.limit(messageSize);
+        message.position(buffer.position() + messageSize);
+
+        return new ProducerRequest(topic, partition, new ByteBufferMessageSet(message));
     }
 }

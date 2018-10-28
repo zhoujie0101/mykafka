@@ -1,5 +1,6 @@
 package com.jay.mykafka.network;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 
@@ -10,9 +11,9 @@ import java.nio.channels.ReadableByteChannel;
 public interface Receive extends Transmission {
     ByteBuffer buffer();
 
-    int readFrom(ReadableByteChannel channel);
+    int readFrom(ReadableByteChannel channel) throws IOException;
 
-    default int readCompletely(ReadableByteChannel channel) {
+    default int readCompletely(ReadableByteChannel channel) throws IOException {
         int read = 0;
         while (!complete()) {
             read = readFrom(channel);

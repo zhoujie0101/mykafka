@@ -1,23 +1,17 @@
 package com.jay.mykafka.produce;
 
 import com.jay.mykafka.api.ProducerRequest;
+import com.jay.mykafka.cluster.Broker;
 import com.jay.mykafka.cluster.Partition;
 import com.jay.mykafka.common.UnavailableProducerException;
 import com.jay.mykafka.message.ByteBufferMessageSet;
-import com.jay.mykafka.produce.async.AsyncProducer;
-import com.jay.mykafka.produce.async.CallbackHandler;
-import com.jay.mykafka.produce.async.DefaultEventHandler;
-import com.jay.mykafka.produce.async.EventHandler;
+import com.jay.mykafka.produce.async.*;
 import com.jay.mykafka.serializer.Encoder;
 import com.jay.mykafka.util.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -34,14 +28,15 @@ public class ProducerPool<V> {
     private Encoder<V> serializer;
     private EventHandler eventHandler;
     private CallbackHandler ckHandler;
+    //brokerId -> SyncProducer
     private ConcurrentMap<Integer, SyncProducer> syncProducers;
+    //brokerId -> AsyncProducer
     private ConcurrentMap<Integer, AsyncProducer<V>> asyncProducers;
     private boolean sync;
 
     public ProducerPool(ProducerConfig config, Encoder<V> serializer) {
         this(config, serializer, Utils.getObject(config.getAsyncProducerConfigShared().getEventHandler()),
-                Utils.getObject(config.getAsyncProducerConfigShared().getCkHanler()),
-                new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+                Utils.getObject(config.getAsyncProducerConfigShared().getCkHanler()));
     }
 
     public ProducerPool(ProducerConfig config, Encoder<V> serializer, EventHandler<V> eventHandler,
@@ -117,6 +112,19 @@ public class ProducerPool<V> {
                 );
             }
         });
+    }
+
+    public void addProducer(Broker broker) {
+        Properties props = new Properties();
+        props.put("host", broker.getHost());
+        props.put("port", broker.getPort());
+        props.putAll(config.getProps());
+        if (sync) {
+            SyncProducer syncProducer = new SyncProducer(new SyncProducerConfig(props));
+            syncProducers.put(broker.getId(), syncProducer);
+        } else {
+            //TODO
+        }
     }
 
     public <T> ProducePoolData<T> createProducePoolData(String topic, Partition partition, List<T> data) {

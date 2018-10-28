@@ -60,7 +60,7 @@ public class ZKBrokerPartitionInfo implements BrokerPartitionInfo {
                         Partition partition = new Partition(Integer.valueOf(brokerId), Integer.parseInt(numPartitions));
                         brokerPartitions.add(partition);
                     });
-                    topicBrokerPartitions.put(topic, brokerPartitions);
+                    brokerPartitionsPerTopic.put(topic, brokerPartitions);
                 }
             });
         }

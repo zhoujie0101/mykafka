@@ -29,7 +29,7 @@ public class LogManager {
     private int flushInterval;
     private Map<String, Integer> topicPartitionsMap;
     private Object logCreationLock = new Object();
-    private Random random = new Random();
+    private Random rand = new Random();
     private CountDownLatch startupLatch;
     private ScheduledThreadPoolExecutor logCleanerScheduler;
     private AtomicLong logCleanerThreadId = new AtomicLong(0);
@@ -39,6 +39,7 @@ public class LogManager {
     private Map<String, Integer> logRetentionSizeMap;
     private Map<String, Long> logRetentionMsMap;
     private Map<String, Long> logRollMsMap;
+    private long logRollDefaultIntervalMs;
 
     private KafkaZookeeper kafkaZookeeper;
 
@@ -57,6 +58,7 @@ public class LogManager {
         logRetentionSizeMap = config.getLogRetentionSizeMap();
         logRetentionMsMap = getMsMap(config.getLogRetentionHoursMap());
         logRollMsMap = getMsMap(config.getLogRollHoursMap());
+        logRollDefaultIntervalMs = 1000 * 60 * 60 * config.getLogRollHours();
 
         initLogs();
 
@@ -159,5 +161,46 @@ public class LogManager {
 
     public Map<String, Integer> getTopicPartitionsMap() {
         return topicPartitionsMap;
+    }
+
+    public int choosePartition(String topic) {
+        return rand.nextInt(topicPartitionsMap.getOrDefault(topic, numPartitions));
+    }
+
+    public Log getOrCreateLog(String topic, int partition) {
+        boolean newTopic = false;
+        ConcurrentMap<Integer, Log> partitionLogMap =  logs.get(topic);
+        if (partitionLogMap == null) {
+            partitionLogMap = new ConcurrentHashMap<>();
+            ConcurrentMap oldPartitionLogMap = logs.putIfAbsent(topic, partitionLogMap);
+            if (oldPartitionLogMap == null) {
+                newTopic = true;
+            }
+        }
+        Log log = partitionLogMap.get(partition);
+        if (log == null) {
+            log = createLog(topic, partition);
+            Log oldLog = partitionLogMap.putIfAbsent(partition, log);
+            if (oldLog != null) {
+                log.close();
+                log = oldLog;
+            }
+        }
+
+        if (newTopic) {
+            kafkaZookeeper.registerTopicInZK(topic);
+        }
+
+        return log;
+    }
+
+    private Log createLog(String topic, int partition) {
+        synchronized (logCreationLock) {
+            File dir = new File(logDir, topic + "-" + partition);
+            dir.mkdirs();
+            long rollIntervalMs = logRollMsMap.getOrDefault(topic, logRollDefaultIntervalMs);
+            int maxLogFileSize = logFileSizeMap.getOrDefault(topic, config.getLogFileSize());
+            return new Log(dir, maxLogFileSize, config.getMaxMessageSize(), flushInterval, rollIntervalMs);
+        }
     }
 }

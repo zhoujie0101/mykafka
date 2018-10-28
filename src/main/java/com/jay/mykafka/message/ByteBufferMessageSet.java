@@ -2,6 +2,7 @@ package com.jay.mykafka.message;
 
 import com.jay.mykafka.common.ErrorMapping;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.GatheringByteChannel;
 import java.util.Iterator;
@@ -20,6 +21,10 @@ public class ByteBufferMessageSet extends MessageSet {
 
     public ByteBufferMessageSet(List<Message> messages) {
         this(MessageSet.createByteBuffer(messages), 0L, ErrorMapping.NO_ERROR);
+    }
+
+    public ByteBufferMessageSet(ByteBuffer buffer) {
+        this.buffer = buffer;
     }
 
     public ByteBufferMessageSet(ByteBuffer buffer, long initialOffset, int errorCode) {
@@ -69,16 +74,24 @@ public class ByteBufferMessageSet extends MessageSet {
 
     @Override
     public long writeTo(GatheringByteChannel channel, long offset, long maxSize) {
-        return 0;
+        buffer.mark();
+        int written = 0;
+        try {
+            written = channel.write(buffer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        buffer.reset();
+        return written;
     }
 
     @Override
     public long sizeInBytes() {
-        return 0;
+        return buffer.limit();
     }
 
     @Override
     public Iterator<MessageAndOffset> iterator() {
-        return null;
+        return internalIterator(false);
     }
 }

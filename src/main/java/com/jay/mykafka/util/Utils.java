@@ -2,8 +2,8 @@ package com.jay.mykafka.util;
 
 import com.jay.mykafka.cluster.TopicPartition;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -209,5 +209,18 @@ public class Utils {
         crc.update(bytes, offset, length);
 
         return crc.getValue();
+    }
+
+    public static FileChannel openChannel(File file, boolean mutate) {
+        try {
+            if (mutate) {
+                return new RandomAccessFile(file, "rw").getChannel();
+            } else {
+                return new FileOutputStream(file).getChannel();
+            }
+        } catch (FileNotFoundException e) {
+            //ignore
+        }
+        return null;
     }
 }

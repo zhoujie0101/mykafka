@@ -1,11 +1,9 @@
 package com.jay.mykafka.message;
 
-import com.jay.mykafka.common.ErrorMapping;
 import com.jay.mykafka.common.InvalidMessageException;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.GatheringByteChannel;
-import java.util.Iterator;
 import java.util.List;
 
 /**

@@ -116,7 +116,7 @@ public class SocketServer {
             shutdownLatch.countDown();
         }
 
-        private void read(SelectionKey key) {
+        private void read(SelectionKey key) throws IOException {
             SocketChannel socketChannel = (SocketChannel) key.channel();
             Receive request = (Receive) key.attachment();
             if (request == null) {
@@ -138,7 +138,7 @@ public class SocketServer {
             }
         }
 
-        private void write(SelectionKey key) {
+        private void write(SelectionKey key) throws IOException {
             SocketChannel socketChannel = (SocketChannel) key.channel();
             Send response = (Send) key.attachment();
             int written = response.writeTo(socketChannel);

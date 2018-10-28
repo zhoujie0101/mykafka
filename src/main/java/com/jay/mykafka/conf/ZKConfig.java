@@ -56,4 +56,8 @@ public class ZKConfig {
     public int getZkSyncTimeMs() {
         return zkSyncTimeMs;
     }
+
+    public Properties getProps() {
+        return props;
+    }
 }
