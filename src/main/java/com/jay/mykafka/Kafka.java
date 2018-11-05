@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Properties;
 
 /**
+ * 启动入口
  * jie.zhou
  * 2018/10/25 09:17
  */

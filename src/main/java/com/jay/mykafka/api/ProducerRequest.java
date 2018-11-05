@@ -22,6 +22,10 @@ public class ProducerRequest extends Request {
         this.messages = messages;
     }
 
+    public static int randomPartition() {
+        return -1;
+    }
+
     @Override
     public int sizeInBytes() {
         return 2  //topic
@@ -54,7 +58,7 @@ public class ProducerRequest extends Request {
     }
 
     public static ProducerRequest readFrom(ByteBuffer buffer) {
-        int topicLength = buffer.getShort();
+        short topicLength = buffer.getShort();
         byte[] bytes = new byte[topicLength];
         buffer.get(bytes);
         String topic = null;

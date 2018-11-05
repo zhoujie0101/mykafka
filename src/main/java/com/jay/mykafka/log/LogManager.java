@@ -16,6 +16,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
+ * kafka log 管理服务
  * jie.zhou
  * 2018/10/25 11:19
  */
@@ -23,7 +24,13 @@ public class LogManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(LogManager.class);
 
     private KafkaConfig config;
+    /**
+     * 日志目录
+     */
     private File logDir;
+    /**
+     * 默认分区数
+     */
     private int numPartitions;
     private Map<String, Integer> logFileSizeMap;
     private int flushInterval;
@@ -152,9 +159,7 @@ public class LogManager {
 
     private Map<String, Long> getMsMap(Map<String, Integer> map) {
         Map<String, Long> ret = new HashMap<>(map.size());
-        map.forEach((key, value) -> {
-            ret.put(key, value * 60 * 60 * 1000L);
-        });
+        map.forEach((key, value) -> ret.put(key, value * 60 * 60 * 1000L));
 
         return ret;
     }
@@ -171,11 +176,11 @@ public class LogManager {
         boolean newTopic = false;
         ConcurrentMap<Integer, Log> partitionLogMap =  logs.get(topic);
         if (partitionLogMap == null) {
-            partitionLogMap = new ConcurrentHashMap<>();
-            ConcurrentMap oldPartitionLogMap = logs.putIfAbsent(topic, partitionLogMap);
+            ConcurrentMap oldPartitionLogMap = logs.putIfAbsent(topic, new ConcurrentHashMap<>());
             if (oldPartitionLogMap == null) {
                 newTopic = true;
             }
+            partitionLogMap = logs.get(topic);
         }
         Log log = partitionLogMap.get(partition);
         if (log == null) {
@@ -184,6 +189,8 @@ public class LogManager {
             if (oldLog != null) {
                 log.close();
                 log = oldLog;
+            } else {
+                LOGGER.info("Created log for '" + topic + "'-" + partition);
             }
         }
 

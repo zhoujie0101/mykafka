@@ -55,6 +55,8 @@ public class Producer<K, V> {
             zkProps.put("zk.connectiontimeout.ms", config.getSyncProducerConfig().getConnectTimeoutMs());
             zkProps.put("zk.synctime.ms", config.getZkSyncTimeMs());
             brokerPartitionInfo = new ZKBrokerPartitionInfo(new ZKConfig(zkProps));
+
+            brokerPartitionInfo.getAllBrokerInfo().forEach((brokerId, broker) -> producerPool.addProducer(broker));
         }
     }
 

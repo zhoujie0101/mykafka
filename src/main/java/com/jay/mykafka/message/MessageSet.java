@@ -18,7 +18,7 @@ import java.util.List;
 public abstract class MessageSet implements Iterable<MessageAndOffset> {
     public static final int LOG_OVERHEAD = 4;
 
-    protected static ByteBuffer createByteBuffer(List<Message> messages) {
+    public static ByteBuffer createByteBuffer(List<Message> messages) {
         ByteBuffer buffer = ByteBuffer.allocate(MessageSet.messageSetSize(messages));
         for (Message m : messages) {
             m.serializedTo(buffer);

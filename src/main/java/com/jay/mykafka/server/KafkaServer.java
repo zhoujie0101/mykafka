@@ -10,6 +10,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
+ * kafka服务
  * jie.zhou
  * 2018/10/25 11:13
  */

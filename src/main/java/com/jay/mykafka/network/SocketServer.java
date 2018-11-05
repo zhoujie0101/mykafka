@@ -19,6 +19,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
+ * kafka socket服务
  * jie.zhou
  * 2018/10/25 11:19
  */
@@ -65,6 +66,9 @@ public class SocketServer {
         }
     }
 
+    /**
+     * kafka socket handle
+     */
     private class Processor implements Runnable {
         private ConcurrentLinkedQueue<SocketChannel> newConnections = new ConcurrentLinkedQueue<>();
         private int maxRequestSize;
@@ -91,10 +95,10 @@ public class SocketServer {
                     int ready = selector.select(500);
                     if (ready > 0) {
                         Set<SelectionKey> keys = selector.selectedKeys();
-                        Iterator<SelectionKey> iter = keys.iterator();
-                        while (iter.hasNext() && running.get()) {
-                            SelectionKey key = iter.next();
-                            iter.remove();
+                        Iterator<SelectionKey> it = keys.iterator();
+                        while (it.hasNext() && running.get()) {
+                            SelectionKey key = it.next();
+                            it.remove();
                             if (key.isReadable()) {
                                 read(key);
                             } else if (key.isWritable()) {
@@ -128,6 +132,7 @@ public class SocketServer {
                 close(key);
             } else if (request.complete()){
                 Send maybeResponse = handler.handleRequest(key, request);
+                key.attach(null);
                 if (maybeResponse != null) {
                     key.attach(maybeResponse);
                     key.interestOps(SelectionKey.OP_WRITE);
@@ -186,6 +191,9 @@ public class SocketServer {
         }
     }
 
+    /**
+     * socket accept server
+     */
     private class Acceptor implements Runnable {
         private int port;
         private Processor[] processors;
@@ -227,11 +235,11 @@ public class SocketServer {
                     int ready = selector.select(500);
                     if (ready > 0) {
                         Set<SelectionKey> keys = selector.selectedKeys();
-                        Iterator<SelectionKey> iter = keys.iterator();
+                        Iterator<SelectionKey> it = keys.iterator();
                         try {
-                            while (iter.hasNext() && running.get()) {
-                                SelectionKey key = iter.next();
-                                iter.remove();
+                            while (it.hasNext() && running.get()) {
+                                SelectionKey key = it.next();
+                                it.remove();
                                 if (key.isAcceptable()) {
                                     accept(key, processors[currentProcessor]);
                                 } else {

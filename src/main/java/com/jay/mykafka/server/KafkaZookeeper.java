@@ -7,21 +7,18 @@ import com.jay.mykafka.util.ZKStringSerializer;
 import com.jay.mykafka.util.ZKUtils;
 import org.I0Itec.zkclient.IZkStateListener;
 import org.I0Itec.zkclient.ZkClient;
-import org.I0Itec.zkclient.exception.ZkMarshallingError;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
-import org.I0Itec.zkclient.serialize.ZkSerializer;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * kafka zk管理
  * jie.zhou
  * 2018/10/25 15:58
  */
@@ -63,9 +60,7 @@ public class KafkaZookeeper {
             registerBrokerInZK();
             synchronized (lock) {
                 LOGGER.info("re-registering broker topics in ZK for broker " + config.getBrokerId());
-                topics.forEach(topic -> {
-                    registerTopicInZKInternal(topic);
-                });
+                topics.forEach(KafkaZookeeper.this::registerTopicInZKInternal);
             }
         }
 

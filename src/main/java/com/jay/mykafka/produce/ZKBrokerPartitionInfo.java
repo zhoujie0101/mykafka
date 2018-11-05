@@ -45,8 +45,21 @@ public class ZKBrokerPartitionInfo implements BrokerPartitionInfo {
         zkClient.subscribeChildChanges(ZKUtils.BROKER_IDS_PATH, brokerTopicListener);
     }
 
+    private Map<Integer, Broker> getZKBrokerInfo() {
+        Map<Integer, Broker> brokers = new HashMap<>();
+        List<String> allBrokerIds = zkClient.getChildren(ZKUtils.BROKER_IDS_PATH);
+        allBrokerIds.forEach(brokerId -> {
+            int bid = Integer.parseInt(brokerId);
+            String brokerInfo = zkClient.readData(ZKUtils.BROKER_IDS_PATH + "/" + brokerId);
+            brokers.put(bid, Broker.create(bid, brokerInfo));
+        });
+
+        return brokers;
+    }
+
     private Map<String, SortedSet<Partition>> getZKTopicPartitionInfo() {
         Map<String, SortedSet<Partition>> brokerPartitionsPerTopic = new HashMap<>();
+
         ZKUtils.makeSurePersistentPathExists(zkClient, ZKUtils.BROKER_TOPICS_PATH);
         List<String> topics = zkClient.getChildren(ZKUtils.BROKER_TOPICS_PATH);
         if (topics != null && !topics.isEmpty()) {
@@ -68,30 +81,16 @@ public class ZKBrokerPartitionInfo implements BrokerPartitionInfo {
         return brokerPartitionsPerTopic;
     }
 
-    private Map<Integer, Broker> getZKBrokerInfo() {
-        Map<Integer, Broker> brokers = new HashMap<>();
-        List<String> allBrokerIds = zkClient.getChildren(ZKUtils.BROKER_IDS_PATH);
-        allBrokerIds.forEach(brokerId -> {
-            int bid = Integer.parseInt(brokerId);
-            String brokerInfo = zkClient.readData(ZKUtils.BROKER_IDS_PATH + "/" + brokerId);
-            brokers.put(bid, Broker.create(bid, brokerInfo));
-        });
-
-        return brokers;
-    }
-
     @Override
     public SortedSet<Partition> getBrokerPartitionInfo(String topic) {
-        SortedSet<Partition> partitions;
         synchronized (zkWatcherLock) {
-            partitions = topicBrokerPartitions.get(topic);
+            SortedSet<Partition> partitions = topicBrokerPartitions.get(topic);
             if (partitions == null || partitions.isEmpty()) {
                 partitions = bootstrapWithExistingBrokers(topic);
                 topicBrokerPartitions.put(topic, partitions);
             }
+            return partitions;
         }
-
-        return partitions;
     }
 
     private SortedSet<Partition> bootstrapWithExistingBrokers(String topic) {

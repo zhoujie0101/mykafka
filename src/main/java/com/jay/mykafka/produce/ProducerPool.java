@@ -86,11 +86,11 @@ public class ProducerPool<V> {
         distinctBrokerIds.forEach(brokerId -> {
             List<ProducePoolData<V>> requestForCurrentBroker = dataMap.get(brokerId);
             if (sync) {
-                List<ProducerRequest> requests = requestForCurrentBroker.stream().map(data -> {
+                List<ProducerRequest> requests = requestForCurrentBroker.stream().map(req -> {
                     ByteBufferMessageSet message = new ByteBufferMessageSet(
-                            data.getData().stream().map(d -> serializer.toMessage(d)).collect(Collectors.toList())
+                            req.getData().stream().map(d -> serializer.toMessage(d)).collect(Collectors.toList())
                     );
-                    return new ProducerRequest(data.getTopic(), data.getPartition().getPartitionId(),
+                    return new ProducerRequest(req.getTopic(), req.getPartition().getPartitionId(),
                             message);
                 }).collect(Collectors.toList());
                 SyncProducer producer = syncProducers.get(brokerId);
@@ -119,11 +119,15 @@ public class ProducerPool<V> {
         props.put("host", broker.getHost());
         props.put("port", broker.getPort());
         props.putAll(config.getProps());
+        SyncProducer syncProducer = new SyncProducer(new SyncProducerConfig(props));
         if (sync) {
-            SyncProducer syncProducer = new SyncProducer(new SyncProducerConfig(props));
             syncProducers.put(broker.getId(), syncProducer);
         } else {
-            //TODO
+            AsyncProducer<V> asyncProducer = new AsyncProducer<>(new AsyncProducerConfig(props), syncProducer,
+                    serializer, eventHandler, config.getAsyncProducerConfigShared().getEventHandlerProps(),
+                    ckHandler, config.getAsyncProducerConfigShared().getCkHandlerProps());
+            asyncProducer.start();
+            asyncProducers.put(broker.getId(), asyncProducer);
         }
     }
 

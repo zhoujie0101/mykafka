@@ -35,7 +35,8 @@ public class SyncProducer {
 
     public SyncProducer(SyncProducerConfig config) {
         this.config = config;
-        lastConnectTime = (long) (System.currentTimeMillis() - rand.nextDouble() * config.getReconnectInterval());
+//        lastConnectTime = (long) (System.currentTimeMillis() - rand.nextDouble() * config.getReconnectInterval());
+        lastConnectTime = System.currentTimeMillis();
     }
 
     public void send(List<ProducerRequest> requests) {
@@ -47,8 +48,9 @@ public class SyncProducer {
     }
 
     private void send(BoundedByteBufferSend send) {
-        long start = System.currentTimeMillis();
         synchronized (lock) {
+            //TODO check send
+            long start = System.currentTimeMillis();
             channel = getOrCreateChannel();
             try {
                 send.writeCompletely(channel);
@@ -63,9 +65,9 @@ public class SyncProducer {
                 channel = connect();
                 lastConnectTime = System.currentTimeMillis();
             }
+            long end = System.currentTimeMillis();
+            LOGGER.info("SyncProducer send cost: " + (end - start) + " ms");
         }
-        long end = System.currentTimeMillis();
-        LOGGER.info("SyncProducer send cost: " + (end - start) + " ms");
     }
 
     private SocketChannel getOrCreateChannel() {

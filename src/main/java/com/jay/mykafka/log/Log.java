@@ -16,6 +16,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
+ * kafka log
  * jie.zhou
  * 2018/10/25 14:57
  */
@@ -52,7 +53,7 @@ public class Log {
         File[] files = dir.listFiles();
         if (files != null) {
             for (int i = 0; i < files.length && files[i].toString().endsWith(FILE_SUFFIX); i++) {
-                if (files[i].canRead()) {
+                if (!files[i].canRead()) {
                     throw new InvalidFileException("Could not read file " +  files[i]);
                 }
                 String filename = files[i].getName();
@@ -69,6 +70,7 @@ public class Log {
         } else {
             //sort ascending
             segments.sort(Comparator.comparingLong(LogSegment::getStart));
+            //TODO need to validate segment
             LogSegment last = segments.get(segments.size() - 1);
             last.getFileMessageSet().close();
             FileMessageSet messageSet = new FileMessageSet(last.getFile(), true);

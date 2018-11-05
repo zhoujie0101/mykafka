@@ -31,7 +31,7 @@ public class MultiProducerRequest extends Request {
     }
 
     public static MultiProducerRequest readFrom(ByteBuffer buffer) {
-        int length = buffer.getShort();
+        short length = buffer.getShort();
         List<ProducerRequest> requests = new ArrayList<>(length);
         for (int i = 0; i < length; i++) {
             requests.add(ProducerRequest.readFrom(buffer));

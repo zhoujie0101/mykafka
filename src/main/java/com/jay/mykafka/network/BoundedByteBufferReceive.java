@@ -37,7 +37,7 @@ public class BoundedByteBufferReceive implements Receive {
         expectIncomplete();
         int read = 0;
         if (sizeBuffer.hasRemaining()) {
-            read += channel.read(sizeBuffer);
+            read = channel.read(sizeBuffer);
             if (read == -1) {
                 throw new EOFException();
             }
