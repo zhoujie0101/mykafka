@@ -15,31 +15,31 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class FileMessageSet extends MessageSet {
     private FileChannel channel;
-    private boolean mutate;
+    private boolean mutable;
     private long offset;
     private long limit;
     private AtomicLong size = new AtomicLong();
     private AtomicLong highWaterMark = new AtomicLong();
 
-    public FileMessageSet(File file, boolean mutate) {
-        this(Utils.openChannel(file, mutate), mutate);
+    public FileMessageSet(File file, boolean mutable) {
+        this(Utils.openChannel(file, mutable), mutable);
     }
 
-    public FileMessageSet(FileChannel channel, boolean mutate) {
-        this(channel, mutate, 0, Long.MAX_VALUE);
+    public FileMessageSet(FileChannel channel, boolean mutable) {
+        this(channel, mutable, 0, Long.MAX_VALUE);
     }
 
-    public FileMessageSet(FileChannel channel, boolean mutate, long offset, long limit) {
+    public FileMessageSet(FileChannel channel, boolean mutable, long offset, long limit) {
         if(limit < Long.MAX_VALUE || offset > 0) {
             throw new IllegalArgumentException("Attempt to open a mutable message set with a view or offset, which is not allowed.");
         }
 
         this.channel = channel;
-        this.mutate = mutate;
+        this.mutable = mutable;
         this.offset = offset;
         this.limit = limit;
         try {
-            if (mutate) {
+            if (mutable) {
                 this.size.set(channel.size());
                 highWaterMark.set(sizeInBytes());
                 channel.position(channel.size());
@@ -53,7 +53,7 @@ public class FileMessageSet extends MessageSet {
     }
 
     public MessageSet read(long readOffset, long readSize) {
-        return new FileMessageSet(channel, mutate, offset + readOffset,
+        return new FileMessageSet(channel, mutable, offset + readOffset,
                 Math.min(offset + readOffset + readSize, getHighWaterMark()));
     }
 
@@ -67,7 +67,7 @@ public class FileMessageSet extends MessageSet {
         return 0;
     }
 
-    public void append(ByteBufferMessageSet messageSet) {
+    public void append(MessageSet messageSet) {
         checkMutable();
         long written = 0L;
         while (written < messageSet.sizeInBytes()) {
@@ -77,7 +77,7 @@ public class FileMessageSet extends MessageSet {
     }
 
     private void checkMutable() {
-        if (!this.mutate) {
+        if (!this.mutable) {
             throw new IllegalStateException("Attempt to invoke mutation on immutable message set.");
         }
     }
@@ -93,7 +93,7 @@ public class FileMessageSet extends MessageSet {
     }
 
     public void close() {
-        if (this.mutate) {
+        if (this.mutable) {
             flush();
         }
         try {

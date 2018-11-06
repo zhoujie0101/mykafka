@@ -14,6 +14,7 @@ public class ProducerRequest extends Request {
     private String topic;
     private int partition;
     private ByteBufferMessageSet messages;
+    public static final int RANDOM_PARTITION = -1;
 
     public ProducerRequest(String topic, int partition, ByteBufferMessageSet messages) {
         super(RequestKeys.PRODUCE);
@@ -22,14 +23,10 @@ public class ProducerRequest extends Request {
         this.messages = messages;
     }
 
-    public static int randomPartition() {
-        return -1;
-    }
-
     @Override
     public int sizeInBytes() {
-        return 2  //topic
-                + topic.length()
+        return 2  //topic length
+                + topic.length()  //topic
                 + 4  //partition
                 + 4  //message size
                 + (int) messages.sizeInBytes();
@@ -71,7 +68,7 @@ public class ProducerRequest extends Request {
         int messageSize = buffer.getInt();
         ByteBuffer message = buffer.slice();
         message.limit(messageSize);
-        message.position(buffer.position() + messageSize);
+        buffer.position(buffer.position() + messageSize);
 
         return new ProducerRequest(topic, partition, new ByteBufferMessageSet(message));
     }

@@ -1,13 +1,17 @@
 package com.jay.mykafka.log;
 
+import com.jay.mykafka.api.OffsetRequest;
 import com.jay.mykafka.common.InvalidFileException;
+import com.jay.mykafka.common.InvalidMessageSizeException;
 import com.jay.mykafka.message.ByteBufferMessageSet;
 import com.jay.mykafka.message.FileMessageSet;
 import com.jay.mykafka.message.MessageAndOffset;
+import com.jay.mykafka.util.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -48,6 +52,14 @@ public class Log {
         segments = loadSegments();
     }
 
+    public static long[] getEmptyOffsets(OffsetRequest request) {
+        if (request.getTime() == OffsetRequest.LATEST_TIME || request.getTime() == OffsetRequest.EARLIEST_TIME) {
+            return new long[]{0};
+        } else {
+            return new long[1];
+        }
+    }
+
     private CopyOnWriteArrayList<LogSegment> loadSegments() {
         List<LogSegment> segments = new ArrayList<>();
         File[] files = dir.listFiles();
@@ -81,26 +93,47 @@ public class Log {
     }
 
     public void append(ByteBufferMessageSet messages) {
+        int numMessages = 0;
+        for (MessageAndOffset mao : messages) {
+            numMessages += 1;
+        }
+
+        ByteBufferMessageSet validMessages = checkMessage(messages);
+
         synchronized (lock) {
-            int numMessages = 0;
-            for (MessageAndOffset mao : messages) {
-                numMessages += 1;
-            }
             LogSegment segment = segments.get(segments.size() - 1);
             maybeRoll(segment);
             segment = segments.get(segments.size() - 1);
-            segment.append(messages);
+            segment.append(validMessages);
             maybeFlush(numMessages);
         }
     }
 
+    private ByteBufferMessageSet checkMessage(ByteBufferMessageSet messages) {
+        ByteBuffer validBuf = messages.getBuffer().duplicate();
+        long validBytes = messages.validBytes();
+        if (validBytes > Integer.MAX_VALUE || validBytes < 0) {
+            throw new InvalidMessageSizeException("Illegal length of message set " + validBytes +
+                    " Message set cannot be appended to log. Possible causes are corrupted produce requests");
+        }
+        validBuf.limit((int) validBytes);
+
+        return new ByteBufferMessageSet(validBuf);
+    }
+
+    /**
+     * Roll the log over if necessary
+     */
     private void maybeRoll(LogSegment segment) {
         if (segment.getFileMessageSet().sizeInBytes() > maxLogFileSize || (segment.getFirstAppendTime() != 0
-                && segment.getFirstAppendTime() - System.currentTimeMillis() > rollIntervalMs)) {
+                && (System.currentTimeMillis() - segment.getFirstAppendTime()) > rollIntervalMs)) {
             roll();
         }
     }
 
+    /**
+     * Create a new segment and make it active
+     */
     private void roll() {
         synchronized (lock) {
             long newOffset = nextAppendOffset();
@@ -118,20 +151,26 @@ public class Log {
         return segment.getStart() + segment.size();
     }
 
+    /**
+     * Flush the log if necessary
+     */
     private void maybeFlush(int numMessages) {
-        if (unflushed.get() - numMessages > flushInterval) {
+        if (unflushed.addAndGet(numMessages) > flushInterval) {
             flush();
         }
     }
 
+    /**
+     * Flush this log file to the physical disk
+     */
     private void flush() {
         if (unflushed.get() == 0) {
             return;
         }
         synchronized (lock) {
-            unflushed.getAndIncrement();
-            lastFlushedTime.set(System.currentTimeMillis());
             segments.get(segments.size() - 1).getFileMessageSet().flush();
+            unflushed.set(0L);
+            lastFlushedTime.set(System.currentTimeMillis());
         }
     }
 
@@ -147,5 +186,52 @@ public class Log {
         nf.setMaximumFractionDigits(0);
         nf.setGroupingUsed(false);
         return nf.format(offset) + FILE_SUFFIX;
+    }
+
+    public long[] getOffsetsBefore(OffsetRequest request) {
+        List<Tuple<Long, Long>> offsetTimeList;
+        int len;
+        if (segments.get(segments.size() - 1).size() > 0) {
+            len = segments.size() + 1;
+            offsetTimeList = new ArrayList<>(len);
+        } else {
+            len = segments.size();
+            offsetTimeList = new ArrayList<>(len);
+        }
+
+        for (int i = 0; i < segments.size(); i++) {
+            offsetTimeList.add(new Tuple<>(segments.get(i).getStart(), segments.get(i).getFile().lastModified()));
+        }
+        if (len == segments.size() + 1) {
+            LogSegment segment = segments.get(segments.size() - 1);
+            offsetTimeList.add(new Tuple<>(segment.getStart() + segment.getFileMessageSet().getHighWaterMark(),
+                    System.currentTimeMillis()));
+        }
+
+        int startIndex;
+        if (request.getTime() == OffsetRequest.LATEST_TIME) {
+            startIndex = offsetTimeList.size() - 1;
+        } else if (request.getTime() == OffsetRequest.EARLIEST_TIME) {
+            startIndex = 0;
+        } else {
+            startIndex = offsetTimeList.size() - 1;
+            boolean found = false;
+            while (startIndex >= 0 && !found) {
+                if (offsetTimeList.get(startIndex).getSecond() <= request.getTime()) {
+                    found = true;
+                } else {
+                    startIndex--;
+                }
+            }
+        }
+
+        int retSize = Math.min(request.getMaxNumOffset(), startIndex + 1);
+        long[] ret = new long[retSize];
+        for (int i = 0; i < retSize; i++) {
+            ret[i] = offsetTimeList.get(startIndex).getFirst();
+            startIndex--;
+        }
+
+        return ret;
     }
 }

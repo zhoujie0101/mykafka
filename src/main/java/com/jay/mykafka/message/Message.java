@@ -93,7 +93,8 @@ public class Message {
     }
 
     public int serializedSize() {
-        return 4 + buffer.limit();
+        return 4  // length
+                + buffer.limit();
     }
 
     public ByteBuffer serializedTo(ByteBuffer srcBuffer) {

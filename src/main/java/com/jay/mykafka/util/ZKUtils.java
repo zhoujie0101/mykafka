@@ -1,12 +1,21 @@
 package com.jay.mykafka.util;
 
+import com.jay.mykafka.cluster.Broker;
+import com.jay.mykafka.cluster.Cluster;
+import com.jay.mykafka.consumer.TopicCount;
+import com.jay.mykafka.consumer.ZKGroupDir;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.exception.ZkNoNodeException;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * jie.zhou
@@ -62,5 +71,70 @@ public class ZKUtils {
         if (parent.length() != 0) {
             client.createPersistent(parent, true);
         }
+    }
+
+    public static Cluster getCluster(ZkClient zkClient) {
+        Cluster cluster = new Cluster();
+        List<String> brokerIds = zkClient.getChildren(BROKER_IDS_PATH);
+        brokerIds.forEach(brokerId -> {
+            String brokerZKString = zkClient.readData(BROKER_IDS_PATH + "/" + brokerId);
+            cluster.addBroker(Broker.create(Integer.parseInt(brokerId), brokerZKString));
+        });
+
+        return cluster;
+    }
+
+    /**
+     * 获取topic下消费信息
+     * @param zkClient
+     * @param dir
+     * @return topic -> consumerThreadIds
+     */
+    public static Map<String, List<String>> getConsumersPerTopic(ZkClient zkClient, ZKGroupDir dir) {
+        Map<String, List<String>> consumersPerTopic = new HashMap<>();
+
+        List<String> consumers = zkClient.getChildren(dir.getConsumerRegistryDir());
+        consumers.forEach(consumer -> {
+            String data = zkClient.readData(dir.getConsumerRegistryDir() + "/" + consumer);
+            TopicCount tc = TopicCount.constructStatic(consumer, data);
+            Map<String, Set<String>> consumerThreadIdsPerTopic = tc.getConsumerThreadIsPerTopic();
+            consumerThreadIdsPerTopic.forEach((topic, threadIdSet) ->
+                threadIdSet.forEach(threadId ->
+                        consumersPerTopic.computeIfAbsent(topic, k -> new ArrayList<>())
+                                            .add(threadId))
+            );
+        });
+
+        Map<String, List<String>> sortedConsumersPerTopic = new HashMap<>();
+        consumersPerTopic.forEach((topic, threadIds) -> {
+            threadIds.sort(Comparator.naturalOrder());
+            sortedConsumersPerTopic.put(topic, threadIds);
+        });
+
+        return sortedConsumersPerTopic;
+    }
+
+    /**
+     * 获取topic下的partition信息
+     * @param zkClient
+     * @param topics
+     * @return  topic -> partitions (brokerId-partitionId)
+     */
+    public static Map<String, List<String>> getPartitionsPerTopic(ZkClient zkClient, Iterable<String> topics) {
+        Map<String, List<String>> partitionsPerTopic = new HashMap<>();
+        for (String topic : topics) {
+            List<String> partitions = new ArrayList<>();
+            List<String> brokerIds = zkClient.getChildren(BROKER_TOPICS_PATH + "/" + topic);
+            for (String brokerId : brokerIds) {
+                List<String> nParts = zkClient.getChildren(BROKER_TOPICS_PATH + "/" + topic + "/" + brokerId);
+                for (int i = 0; i < nParts.size(); i++) {
+                    partitions.add(brokerId + "-" + i);
+                }
+            }
+            partitions.sort(Comparator.naturalOrder());
+            partitionsPerTopic.put(topic, partitions);
+        }
+
+        return partitionsPerTopic;
     }
 }

@@ -1,4 +1,4 @@
-package com.jay.mykafka.common;
+package com.jay.mykafka.produce.async;
 
 /**
  * jie.zhou

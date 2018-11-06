@@ -26,8 +26,8 @@ public class ProducerPool<V> {
 
     private ProducerConfig config;
     private Encoder<V> serializer;
-    private EventHandler eventHandler;
-    private CallbackHandler ckHandler;
+    private EventHandler<V> eventHandler;
+    private CallbackHandler<V> ckHandler;
     //brokerId -> SyncProducer
     private ConcurrentMap<Integer, SyncProducer> syncProducers;
     //brokerId -> AsyncProducer
@@ -44,14 +44,15 @@ public class ProducerPool<V> {
         this(config, serializer, eventHandler, ckHandler, new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     }
 
-    public ProducerPool(ProducerConfig config, Encoder<V> serializer, EventHandler eventHandler,
-                        CallbackHandler ckHandler, ConcurrentMap<Integer, SyncProducer> syncProducers,
+    public ProducerPool(ProducerConfig config, Encoder<V> serializer, EventHandler<V> eventHandler,
+                        CallbackHandler<V> ckHandler, ConcurrentMap<Integer, SyncProducer> syncProducers,
                         ConcurrentMap<Integer, AsyncProducer<V>> asyncProducers) {
         if (serializer == null) {
             throw new IllegalArgumentException("serializer passed in is null!");
         }
         if (eventHandler == null) {
-            eventHandler = new DefaultEventHandler(config, ckHandler);
+            eventHandler = new DefaultEventHandler<>(new AsyncProducerConfig(config.getProps(),
+                    config.getSyncProducerConfig()), ckHandler);
         }
         this.config = config;
         this.serializer = serializer;

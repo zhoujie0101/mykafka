@@ -1,5 +1,6 @@
 package com.jay.mykafka.log;
 
+import com.jay.mykafka.api.OffsetRequest;
 import com.jay.mykafka.cluster.TopicPartition;
 import com.jay.mykafka.conf.KafkaConfig;
 import com.jay.mykafka.server.KafkaZookeeper;
@@ -168,7 +169,7 @@ public class LogManager {
         return topicPartitionsMap;
     }
 
-    public int choosePartition(String topic) {
+    public int chooseRandomPartition(String topic) {
         return rand.nextInt(topicPartitionsMap.getOrDefault(topic, numPartitions));
     }
 
@@ -209,5 +210,22 @@ public class LogManager {
             int maxLogFileSize = logFileSizeMap.getOrDefault(topic, config.getLogFileSize());
             return new Log(dir, maxLogFileSize, config.getMaxMessageSize(), flushInterval, rollIntervalMs);
         }
+    }
+
+    public long[] getOffsets(OffsetRequest request) {
+        Log log = getLog(request.getTopic(), request.getPartition());
+        if (log != null) {
+            return log.getOffsetsBefore(request);
+        } else {
+            return Log.getEmptyOffsets(request);
+        }
+    }
+
+    public Log getLog(String topic, int partition) {
+        Map<Integer, Log> partitionMap = logs.get(topic);
+        if (partitionMap == null) {
+            return null;
+        }
+        return partitionMap.get(partition);
     }
 }

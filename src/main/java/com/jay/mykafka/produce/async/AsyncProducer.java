@@ -1,7 +1,6 @@
 package com.jay.mykafka.produce.async;
 
 import com.jay.mykafka.api.ProducerRequest;
-import com.jay.mykafka.common.QueueClosedException;
 import com.jay.mykafka.produce.SyncProducer;
 import com.jay.mykafka.serializer.Encoder;
 import com.jay.mykafka.util.Utils;
@@ -31,9 +30,9 @@ public class AsyncProducer<T> {
     private CallbackHandler<T> ckHandler;
     private Properties ckHandlerProps;
     private AtomicBoolean closed = new AtomicBoolean(false);
-    private BlockingQueue<QueueItem> queue;
+    private BlockingQueue<QueueItem<T>> queue;
     private Random rand = new Random();
-    private int asyncProdcuerId = rand.nextInt();
+    private int asyncProducerId = rand.nextInt();
     private Object shutdown = new Object();
     private ProducerSendThread sendThread;
 
@@ -56,19 +55,19 @@ public class AsyncProducer<T> {
         if (this.eventHandler != null) {
             this.eventHandler.init(eventHandlerProps);
         } else {
-            this.eventHandler = new DefaultEventHandler(config, ckHandler);
+            this.eventHandler = new DefaultEventHandler<>(config, ckHandler);
         }
         if (this.ckHandler != null) {
             this.ckHandler.init(ckHandlerProps);
         }
         queue = new LinkedBlockingQueue<>(config.getQueueSize());
-        sendThread = new ProducerSendThread<>("ProducerSendThread-" + asyncProdcuerId, queue, encoder, this.syncProducer,
+        sendThread = new ProducerSendThread<>("ProducerSendThread-" + asyncProducerId, queue, encoder, this.syncProducer,
                 this.eventHandler, this.ckHandler, config.getQueueTime(), config.getBatchSize(), shutdown);
         sendThread.setDaemon(false);
     }
 
     public void send(String topic, T event) {
-        send(topic, ProducerRequest.randomPartition(), event);
+        send(topic, ProducerRequest.RANDOM_PARTITION, event);
     }
 
     public void send(String topic, int partition, T event) {
@@ -97,16 +96,18 @@ public class AsyncProducer<T> {
         }
 
         if (ckHandler != null) {
-            ckHandler.afterEnqueue(item);
+            ckHandler.afterEnqueue(item, added);
         }
 
         if (!added) {
             LOGGER.error("Event queue is full of unsent messages, could not send event: " + event.toString());
+            throw new QueueFullException("Event queue is full of unsent messages, could not send event: "
+                    + event.toString());
         }
     }
 
     public void start() {
-
+        sendThread.start();
     }
 
     public void close() {
@@ -115,7 +116,7 @@ public class AsyncProducer<T> {
         }
         closed.set(true);
         try {
-            queue.put(new QueueItem<>(null, -1, shutdown));
+            queue.put(new QueueItem(null, -1, shutdown));
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

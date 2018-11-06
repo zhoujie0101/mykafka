@@ -9,25 +9,25 @@ import java.util.List;
  * 2018/10/28 10:09
  */
 public class MultiProducerRequest extends Request {
-    private List<ProducerRequest> requests;
+    private List<ProducerRequest> producers;
 
-    public MultiProducerRequest(List<ProducerRequest> requests) {
+    public MultiProducerRequest(List<ProducerRequest> producers) {
         super(RequestKeys.MUTIL_PRODUCE);
-        this.requests = requests;
+        this.producers = producers;
     }
 
     @Override
     public int sizeInBytes() {
-        return  2 + requests.stream().mapToInt(ProducerRequest::sizeInBytes).sum();
+        return  2 + producers.stream().mapToInt(ProducerRequest::sizeInBytes).sum();
     }
 
     @Override
     public void writeTo(ByteBuffer buffer) {
-        if (requests.size() > Short.MAX_VALUE) {
-            throw new IllegalArgumentException("Number of requests in MultiProducer exceeds " + Short.MAX_VALUE + ".");
+        if (producers.size() > Short.MAX_VALUE) {
+            throw new IllegalArgumentException("Number of producers in MultiProducer exceeds " + Short.MAX_VALUE + ".");
         }
-        buffer.putShort((short) requests.size());
-        requests.forEach(req -> req.writeTo(buffer));
+        buffer.putShort((short) producers.size());
+        producers.forEach(req -> req.writeTo(buffer));
     }
 
     public static MultiProducerRequest readFrom(ByteBuffer buffer) {
@@ -38,5 +38,9 @@ public class MultiProducerRequest extends Request {
         }
 
         return new MultiProducerRequest(requests);
+    }
+
+    public List<ProducerRequest> getProducers() {
+        return producers;
     }
 }

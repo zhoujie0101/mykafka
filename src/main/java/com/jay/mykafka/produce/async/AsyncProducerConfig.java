@@ -12,8 +12,12 @@ public class AsyncProducerConfig extends AsyncProducerConfigShared {
     private SyncProducerConfig syncProducerConfig;
 
     public AsyncProducerConfig(Properties props) {
+       this(props, new SyncProducerConfig(props));
+    }
+
+    public AsyncProducerConfig(Properties props, SyncProducerConfig syncProducerConfig) {
         super(props);
-        syncProducerConfig = new SyncProducerConfig(props);
+        this.syncProducerConfig = syncProducerConfig;
     }
 
     public SyncProducerConfig getSyncProducerConfig() {

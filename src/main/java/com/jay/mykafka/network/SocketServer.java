@@ -131,7 +131,7 @@ public class SocketServer {
             if (read < 0) {
                 close(key);
             } else if (request.complete()){
-                Send maybeResponse = handler.handleRequest(key, request);
+                Send maybeResponse = handler.handleRequest(request.buffer().getShort(), request);
                 key.attach(null);
                 if (maybeResponse != null) {
                     key.attach(maybeResponse);

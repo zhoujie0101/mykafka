@@ -1,7 +1,5 @@
 package com.jay.mykafka.produce.async;
 
-import com.jay.mykafka.common.IllegalQueueStateException;
-import com.jay.mykafka.produce.ProducerPool;
 import com.jay.mykafka.produce.SyncProducer;
 import com.jay.mykafka.serializer.Encoder;
 import org.slf4j.Logger;
@@ -20,7 +18,6 @@ import java.util.concurrent.TimeUnit;
 public class ProducerSendThread<T> extends Thread {
     public static final Logger LOGGER = LoggerFactory.getLogger(ProducerSendThread.class);
 
-    private String threadName;
     private BlockingQueue<QueueItem<T>> queue;
     private Encoder<T> serializer;
     private SyncProducer underlyingProducer;
@@ -31,12 +28,10 @@ public class ProducerSendThread<T> extends Thread {
     private Object shutdownCommand;
     private CountDownLatch shutdownLatch = new CountDownLatch(1);
 
-
     public ProducerSendThread(String threadName, BlockingQueue<QueueItem<T>> queue, Encoder<T> serializer,
                                   SyncProducer syncProducer, EventHandler<T> eventHandler, CallbackHandler<T> ckHandler,
                                   int queueTime, int batchSize, Object shutdownCommand) {
         super(threadName);
-        this.threadName = threadName;
         this.queue = queue;
         this.serializer = serializer;
         this.underlyingProducer = syncProducer;
@@ -93,7 +88,9 @@ public class ProducerSendThread<T> extends Thread {
     }
 
     private void tryToHandle(List<QueueItem<T>> events) {
-
+        if (events.size() > 0) {
+            eventHandler.handle(events, underlyingProducer, serializer);
+        }
     }
 
     public void shutdown() {

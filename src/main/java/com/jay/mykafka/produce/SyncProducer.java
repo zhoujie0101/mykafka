@@ -28,7 +28,7 @@ public class SyncProducer {
     private int sentOnChannel;
     private volatile boolean shutdown = false;
     private Object lock = new Object();
-    Random rand = new Random();
+//    Random rand = new Random();
     private long lastConnectTime;
 
     private SyncProducerConfig config;

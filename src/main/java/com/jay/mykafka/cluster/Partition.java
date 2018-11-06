@@ -17,13 +17,21 @@ public class Partition implements Comparable<Partition> {
         return brokerId + "-" + partitionId;
     }
 
-    public Partition parse(String s) {
+    public static Partition parse(String s) {
         String[] pieces = s.split("-");
         if (pieces.length != 2) {
             throw new IllegalArgumentException("Expected name in the form x-y");
         }
 
         return new Partition(Integer.parseInt(pieces[0]), Integer.parseInt(pieces[1]));
+    }
+
+    public int getBrokerId() {
+        return brokerId;
+    }
+
+    public int getPartitionId() {
+        return partitionId;
     }
 
     @Override
@@ -35,11 +43,8 @@ public class Partition implements Comparable<Partition> {
         return this.brokerId - that.brokerId;
     }
 
-    public int getBrokerId() {
-        return brokerId;
-    }
-
-    public int getPartitionId() {
-        return partitionId;
+    @Override
+    public String toString() {
+        return name();
     }
 }
